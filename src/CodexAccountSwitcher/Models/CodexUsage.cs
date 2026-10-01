@@ -25,14 +25,31 @@ public sealed class CodexUsage
 
     private static string FormatWindowLabel(int? durationMinutes, string fallback)
     {
-        return durationMinutes switch
+        if (durationMinutes is not int minutes || minutes <= 0)
         {
-            300 => "5h",
-            10080 => "Weekly",
-            > 0 and < 1440 when durationMinutes.Value % 60 == 0 => $"{durationMinutes.Value / 60}h",
-            >= 1440 when durationMinutes.Value % 1440 == 0 => $"{durationMinutes.Value / 1440}d",
-            > 0 => $"{durationMinutes} min",
-            _ => fallback
-        };
+            return fallback;
+        }
+
+        if (minutes == 300)
+        {
+            return "5h";
+        }
+
+        if (minutes == 10080)
+        {
+            return "Weekly";
+        }
+
+        if (minutes < 1440 && minutes % 60 == 0)
+        {
+            return $"{minutes / 60}h";
+        }
+
+        if (minutes >= 1440 && minutes % 1440 == 0)
+        {
+            return $"{minutes / 1440}d";
+        }
+
+        return $"{minutes} min";
     }
 }
