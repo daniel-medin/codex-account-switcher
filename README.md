@@ -159,3 +159,33 @@ Adding another account uses a temporary isolated `CODEX_HOME`, so the live Codex
 ### Internal integration note
 
 Usage and OAuth refresh follow the behavior of the current open-source Codex client. Those endpoints are intentionally isolated in services because they are not a stable public third-party API contract.
+
+
+## VS Code
+
+Visual Studio is not required.
+
+Recommended setup on Windows:
+
+1. Install the .NET 10 SDK.
+2. Install the recommended VS Code extensions when prompted.
+3. Open the repository folder in VS Code.
+4. Press **Ctrl+Shift+B** to build.
+5. Press **F5** and choose **Codex Account Switcher** to build and launch the WPF app under the debugger.
+
+You can also use the terminal:
+
+```powershell
+dotnet restore CodexAccountSwitcher.sln
+dotnet build CodexAccountSwitcher.sln
+dotnet run --project src/CodexAccountSwitcher/CodexAccountSwitcher.csproj
+```
+
+The repository includes:
+
+- `.vscode/tasks.json`
+- `.vscode/launch.json`
+- `.vscode/extensions.json`
+- `.vscode/settings.json`
+
+The `.sln` file is a standard .NET solution file and works with VS Code/.NET tooling; Visual Studio itself is not required.
