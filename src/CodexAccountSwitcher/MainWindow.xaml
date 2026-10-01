@@ -7,7 +7,7 @@
         MinWidth="820"
         MinHeight="640"
         WindowStartupLocation="CenterScreen">
-    <Grid Margin="24">
+        <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="18" />
@@ -27,7 +27,8 @@
             <StackPanel>
                 <TextBlock Text="CODEX ACCOUNT SWITCHER"
                            FontSize="24"
-                           FontWeight="SemiBold" />
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource SecondaryTextBrush}" />
                 <TextBlock Text="Switch accounts without replacing sessions, skills or config"
                            Margin="0,4,0,0"
                            Foreground="{StaticResource SecondaryTextBrush}" />
@@ -153,7 +154,7 @@
                                                              Margin="0,5,0,3"
                                                              Minimum="0"
                                                              Maximum="100"
-                                                             Value="{Binding PrimaryRemainingValue}" />
+                                                             Value="{Binding PrimaryRemainingValue, Mode=OneWay}" />
                                                 <TextBlock Text="{Binding PrimaryResetText}"
                                                            FontSize="11"
                                                            Foreground="{StaticResource SecondaryTextBrush}"
@@ -165,7 +166,7 @@
                                                              Margin="0,5,0,3"
                                                              Minimum="0"
                                                              Maximum="100"
-                                                             Value="{Binding SecondaryRemainingValue}" />
+                                                             Value="{Binding SecondaryRemainingValue, Mode=OneWay}" />
                                                 <TextBlock Text="{Binding SecondaryResetText}"
                                                            FontSize="11"
                                                            Foreground="{StaticResource SecondaryTextBrush}" />
@@ -176,12 +177,17 @@
                                                            Foreground="{StaticResource SecondaryTextBrush}" />
                                             </StackPanel>
 
-                                            <Button Grid.Column="2"
-                                                    Content="Use account"
+                                                <StackPanel Grid.Column="2"
+                                                    VerticalAlignment="Center">
+                                                <Button Content="Edit alias"
+                                                    Click="EditAlias_Click"
+                                                    MinWidth="105"
+                                                    Margin="0,0,0,8" />
+                                                <Button Content="Use account"
                                                     Command="{Binding DataContext.ActivateAccountCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
-                                                    MinWidth="105"
-                                                    VerticalAlignment="Center" />
+                                                    MinWidth="105" />
+                                                </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

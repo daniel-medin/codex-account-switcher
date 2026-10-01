@@ -1,11 +1,28 @@
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace CodexAccountSwitcher.Models;
 
-public sealed class CodexAccount
+public sealed class CodexAccount : INotifyPropertyChanged
 {
+    private string _displayName = string.Empty;
+
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string DisplayName { get; set; } = string.Empty;
+    public string DisplayName
+    {
+        get => _displayName;
+        set
+        {
+            if (_displayName == value)
+            {
+                return;
+            }
+
+            _displayName = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayName)));
+        }
+    }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastUsedAt { get; set; }
     public string CredentialFileName { get; set; } = string.Empty;
@@ -82,4 +99,6 @@ public sealed class CodexAccount
             : Usage is null
                 ? "Usage not loaded"
                 : $"Updated {Usage.RetrievedAt.ToLocalTime():HH:mm:ss}";
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }

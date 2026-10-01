@@ -1,4 +1,5 @@
 using System.Net.Http;
+using CodexAccountSwitcher.Models;
 using CodexAccountSwitcher.Services;
 using CodexAccountSwitcher.ViewModels;
 
@@ -38,5 +39,25 @@ public partial class MainWindow : System.Windows.Window
             accountManager,
             usageService,
             vsCodeService);
+    }
+
+    private async void EditAlias_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel ||
+            viewModel.IsBusy ||
+            sender is not System.Windows.FrameworkElement { DataContext: CodexAccount account })
+        {
+            return;
+        }
+
+        var dialog = new RenameAccountWindow(account.DisplayName)
+        {
+            Owner = this
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            await viewModel.RenameAccountAsync(account, dialog.AccountName);
+        }
     }
 }

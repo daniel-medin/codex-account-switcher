@@ -33,6 +33,21 @@ public sealed class AccountManagerService : IAccountManagerService
         return accounts;
     }
 
+    public async Task RenameAccountAsync(
+        Guid accountId,
+        string displayName,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateDisplayName(displayName);
+
+        var accounts = (await _accountStore.LoadAccountsAsync(cancellationToken)).ToList();
+        var account = accounts.SingleOrDefault(candidate => candidate.Id == accountId)
+                      ?? throw new InvalidOperationException("Account was not found.");
+
+        account.DisplayName = displayName.Trim();
+        await _accountStore.SaveAccountsAsync(accounts, cancellationToken);
+    }
+
     public async Task<CodexAccount> ImportCurrentAccountAsync(
         string displayName,
         CancellationToken cancellationToken = default)

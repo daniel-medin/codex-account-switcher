@@ -89,6 +89,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    public async Task RenameAccountAsync(CodexAccount account, string displayName)
+    {
+        await RunBusyAsync(
+            $"Saving alias for {account.DisplayName}...",
+            async () =>
+            {
+                await _accountManager.RenameAccountAsync(account.Id, displayName);
+                account.DisplayName = displayName.Trim();
+                StatusText = $"Renamed account to {account.DisplayName}.";
+            });
+    }
+
     private async Task RefreshAsync()
     {
         await RunBusyAsync(

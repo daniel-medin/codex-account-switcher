@@ -44,6 +44,12 @@ public sealed class CodexCliService : ICodexCliService
             }
         }
 
+        var bundledExecutable = FindBundledExecutable();
+        if (bundledExecutable is not null)
+        {
+            return bundledExecutable;
+        }
+
         try
         {
             using var process = new Process
@@ -74,6 +80,74 @@ public sealed class CodexCliService : ICodexCliService
         }
     }
 
+    private static string? FindBundledExecutable()
+    {
+        var extensionRoots = new[]
+        {
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".vscode",
+                "extensions"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".vscode-insiders",
+                "extensions")
+        };
+
+        foreach (var extensionRoot in extensionRoots)
+        {
+            if (!Directory.Exists(extensionRoot))
+            {
+                continue;
+            }
+
+            try
+            {
+                var candidates = Directory.EnumerateDirectories(
+                        extensionRoot,
+                        "openai.chatgpt-*")
+                    .Select(extensionDirectory => new
+                    {
+                        Path = Path.Combine(
+                            extensionDirectory,
+                            "bin",
+                            "windows-x86_64",
+                            "codex.exe"),
+                        Version = GetExtensionVersion(extensionDirectory)
+                    })
+                    .Where(candidate => File.Exists(candidate.Path))
+                    .OrderByDescending(candidate => candidate.Version);
+
+                var latest = candidates.FirstOrDefault();
+                if (latest is not null)
+                {
+                    return latest.Path;
+                }
+            }
+            catch (IOException)
+            {
+                // An extension can be updated while CLI discovery is running.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Ignore extension directories the current user cannot inspect.
+            }
+        }
+
+        return null;
+    }
+
+    private static Version GetExtensionVersion(string extensionDirectory)
+    {
+        const string prefix = "openai.chatgpt-";
+        var directoryName = Path.GetFileName(extensionDirectory);
+        var versionText = directoryName[prefix.Length..].Split('-')[0];
+
+        return Version.TryParse(versionText, out var version)
+            ? version
+            : new Version(0, 0);
+    }
+
     public async Task<int> RunInteractiveLoginAsync(
         string executablePath,
         string codexHome,
@@ -93,7 +167,8 @@ public sealed class CodexCliService : ICodexCliService
                 FileName = string.IsNullOrWhiteSpace(comSpec) ? "cmd.exe" : comSpec,
                 Arguments = $"/d /s /c \"\"{executablePath}\" login\"",
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = false,
+                WindowStyle = ProcessWindowStyle.Normal
             };
         }
         else
@@ -102,7 +177,8 @@ public sealed class CodexCliService : ICodexCliService
             {
                 FileName = executablePath,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = false,
+                WindowStyle = ProcessWindowStyle.Normal
             };
 
             startInfo.ArgumentList.Add("login");
