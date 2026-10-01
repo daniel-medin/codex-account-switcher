@@ -126,3 +126,36 @@ Stored credential blobs are encrypted with Windows DPAPI using `CurrentUser` sco
 This version deliberately supports only Codex installations where the active ChatGPT authentication is represented by `$CODEX_HOME/auth.json`. Current Codex also supports configurable credential storage/keyring backends, so the app refuses to pretend those cases are supported until they have been verified and implemented.
 
 After switching auth, reload the Codex VS Code window/session so the running Codex process reads the new credentials.
+
+
+## Multi-account MVP
+
+The current feature branch implements the core workflow:
+
+- import the currently active Codex login
+- register additional accounts through normal Codex browser login without logging out the active account
+- store each account's complete auth state encrypted with Windows DPAPI
+- identify accounts using stable ChatGPT user/account IDs instead of auth-file hashes
+- retain refreshed/rotated credentials
+- read primary and secondary Codex usage for every stored account
+- refresh expired inactive-account access tokens using the same OAuth refresh flow as Codex
+- show reset times and a best-available visual hint
+- switch only the active authentication state
+- atomically roll back failed switches
+- stop only VS Code-owned Codex worker processes after switching so the extension can reconnect
+- preserve shared sessions, skills, configuration and history
+
+### Setup flow
+
+1. Start the app while your first Codex account is already signed in.
+2. Enter an alias and choose **Import current**.
+3. Enter another alias and choose **Add another account**.
+4. Complete the normal Codex browser login.
+5. Repeat for the remaining accounts.
+6. Use **Use account** whenever you want to switch.
+
+Adding another account uses a temporary isolated `CODEX_HOME`, so the live Codex login does not need to be logged out or moved during registration.
+
+### Internal integration note
+
+Usage and OAuth refresh follow the behavior of the current open-source Codex client. Those endpoints are intentionally isolated in services because they are not a stable public third-party API contract.
