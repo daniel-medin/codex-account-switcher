@@ -1,191 +1,41 @@
 # Codex Account Switcher
 
-A Windows desktop app for managing multiple ChatGPT/Codex accounts while preserving the same local Codex sessions, skills, configuration, and project context.
+A Windows desktop app for saving multiple ChatGPT/Codex logins and switching the file-based Codex authentication used by a **new** Codex process. It leaves the shared Codex sessions, skills, configuration, and history in place.
 
-## Why
+This is an independent utility, not an OpenAI product.
 
-When a Codex account reaches its usage limit, switching to another ChatGPT account currently tends to involve closing VS Code, removing or replacing parts of `.codex`, reopening VS Code, and signing in again.
+## Install on Windows
 
-The goal of this project is to make that workflow safe and fast:
+1. Install the [Codex VS Code extension](https://marketplace.visualstudio.com/items?itemName=openai.chatgpt) or another Codex CLI installation. The `codex` command must be available to the app for **Add another account**.
+2. Download `CodexAccountSwitcher-v1.0.0-win-x64.zip` from [GitHub Releases](https://github.com/daniel-medin/codex-account-switcher/releases). Extract it to a folder you keep, such as `%LOCALAPPDATA%\Programs\CodexAccountSwitcher`.
+3. Run `CodexAccountSwitcher.exe`. The release is self-contained; it does not require a separate .NET installation. Windows may ask you to confirm running an unsigned app.
+4. To launch it from the desktop, right-click the EXE and choose **Show more options → Send to → Desktop (create shortcut)**. Keep the EXE in its extracted folder and use the shortcut.
 
-- keep one shared Codex environment
-- keep sessions/history intact
-- keep skills and configuration intact
-- store account authentication states separately and securely
-- show Codex usage/rate limits for each account
-- switch the active account with one click
-- reload only what is necessary
-- continue the same project/session after switching accounts
+The app runs as your Windows user. Registered account credentials are protected with Windows DPAPI for that user and saved under `%LOCALAPPDATA%\CodexAccountSwitcher`. The active Codex login remains in the configured `CODEX_HOME` (normally `%USERPROFILE%\.codex\auth.json`). Do not copy the credential store to another Windows user profile.
 
-## Intended workflow
+## Use
 
-1. Work in VS Code with Codex using Account A.
-2. Account A approaches or reaches its usage limit.
-3. Open Codex Account Switcher.
-4. See usage for all registered accounts.
-5. Choose another account.
-6. The app safely persists the current auth state, activates the selected account, and reloads Codex.
-7. Continue the same Codex session in the same project.
+1. Sign in to Codex normally, enter an alias, and select **Import current**.
+2. Enter an alias and select **Add another account**. Complete the Codex browser login. This registration uses a temporary `CODEX_HOME` and does not sign out the active account.
+3. Select **Use account** for the account you want. The app saves the current account's latest auth state and replaces only the active auth file.
+4. After the current Codex turn finishes, reload the VS Code window: **Ctrl+Shift+P → Developer: Reload Window → Enter**. Reopen the conversation and verify the account before sending another request.
 
-## Planned stack
+**Use account changes credentials on disk.** A running VS Code Codex worker can continue using the account it already loaded. Automatic VS Code reload and verified continuation of the same live conversation are not implemented in v1. Session files remain in place, but cross-account continuation of a specific conversation has not been verified end to end.
 
-- C#
-- .NET 10 where supported
-- WPF
-- MVVM where useful, without unnecessary abstraction
-- Windows DPAPI and/or Windows Credential Manager for sensitive credentials
+The app supports Codex's file-based ChatGPT auth. Keyring-backed auth and other credential sources are outside v1's supported scope. Usage retrieval depends on undocumented Codex/ChatGPT endpoints and may need updates when those change.
 
-## Core requirements
+## Build from source
 
-- Never delete the whole `.codex` directory.
-- Preserve sessions, skills, configuration, and history.
-- Treat each account authentication state as an atomic unit.
-- Handle refreshed/rotated OAuth credentials safely.
-- Never log access tokens, refresh tokens, cookies, or full auth payloads.
-- Use atomic switching with rollback on failure.
-- Prefer restarting only Codex rather than all of VS Code.
-- Keep usage retrieval behind an abstraction because the underlying endpoint may change.
-
-## Initial phases
-
-### Phase 1 — Research and diagnostics
-
-Determine how the current Codex installation handles:
-
-- authentication
-- token refresh
-- session storage
-- usage/rate limits
-- VS Code integration
-- process lifecycle
-
-Document findings in `docs/codex-research.md`.
-
-### Phase 2 — Account storage
-
-Implement:
-
-- import current account
-- add account
-- remove account
-- secure credential storage
-- active account detection
-
-### Phase 3 — Safe switching
-
-Implement Account A -> Account B while leaving shared Codex data untouched.
-
-### Phase 4 — Usage
-
-Show:
-
-- primary usage window
-- secondary usage window
-- reset times
-- optional credits/plan information when available
-
-### Phase 5 — Desktop UI
-
-Build the WPF application with account cards, usage bars, refresh controls, and account switching.
-
-### Phase 6 — Tray and VS Code integration
-
-Add a tray UI and minimize disruption during account switching.
-
-## Repository guidance
-
-See:
-
-- [AGENTS.md](AGENTS.md) for implementation rules
-- [PROMPT.md](PROMPT.md) for the full project brief
-
-## Status
-
-Initial research / bootstrap stage.
-
-## Disclaimer
-
-This is an independent utility and is not an official OpenAI product. The implementation should prefer documented and supported mechanisms where available and isolate any dependency on undocumented Codex internals.
-
-
-## Current MVP
-
-The `feature/multi-account-mvp` implementation adds the first real multi-account workflow for **file-based Codex authentication**:
-
-1. Sign in to Codex normally.
-2. Enter an alias and choose **Import current**.
-3. Enter another alias and choose **Add another account**.
-4. The app saves the current auth state securely, temporarily removes the active `auth.json` without calling `codex logout`, starts `codex login`, and captures the new account after successful login.
-5. Repeat for more accounts.
-6. Choose **Use account** to replace only the active auth state.
-
-Stored credential blobs are encrypted with Windows DPAPI using `CurrentUser` scope.
-
-### Important MVP limitation
-
-This version deliberately supports only Codex installations where the active ChatGPT authentication is represented by `$CODEX_HOME/auth.json`. Current Codex also supports configurable credential storage/keyring backends, so the app refuses to pretend those cases are supported until they have been verified and implemented.
-
-After switching auth, reload the Codex VS Code window/session so the running Codex process reads the new credentials.
-
-
-## Multi-account MVP
-
-The current feature branch implements the core workflow:
-
-- import the currently active Codex login
-- register additional accounts through normal Codex browser login without logging out the active account
-- store each account's complete auth state encrypted with Windows DPAPI
-- identify accounts using stable ChatGPT user/account IDs instead of auth-file hashes
-- retain refreshed/rotated credentials
-- read primary and secondary Codex usage for every stored account
-- refresh expired inactive-account access tokens using the same OAuth refresh flow as Codex
-- show reset times and a best-available visual hint
-- switch only the active authentication state
-- atomically roll back failed switches
-- stop only VS Code-owned Codex worker processes after switching so the extension can reconnect
-- preserve shared sessions, skills, configuration and history
-
-### Setup flow
-
-1. Start the app while your first Codex account is already signed in.
-2. Enter an alias and choose **Import current**.
-3. Enter another alias and choose **Add another account**.
-4. Complete the normal Codex browser login.
-5. Repeat for the remaining accounts.
-6. Use **Use account** whenever you want to switch.
-
-Adding another account uses a temporary isolated `CODEX_HOME`, so the live Codex login does not need to be logged out or moved during registration.
-
-### Internal integration note
-
-Usage and OAuth refresh follow the behavior of the current open-source Codex client. Those endpoints are intentionally isolated in services because they are not a stable public third-party API contract.
-
-
-## VS Code
-
-Visual Studio is not required.
-
-Recommended setup on Windows:
-
-1. Install the .NET 10 SDK.
-2. Install the recommended VS Code extensions when prompted.
-3. Open the repository folder in VS Code.
-4. Press **Ctrl+Shift+B** to build.
-5. Press **F5** and choose **Codex Account Switcher** to build and launch the WPF app under the debugger.
-
-You can also use the terminal:
+Install the .NET 10 SDK on Windows, then run:
 
 ```powershell
 dotnet restore CodexAccountSwitcher.sln
-dotnet build CodexAccountSwitcher.sln
-dotnet run --project src/CodexAccountSwitcher/CodexAccountSwitcher.csproj
+dotnet test CodexAccountSwitcher.sln --configuration Release --no-restore
+dotnet publish src/CodexAccountSwitcher/CodexAccountSwitcher.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None --output artifacts/publish/win-x64
 ```
 
-The repository includes:
+The standalone EXE is at `artifacts/publish/win-x64/CodexAccountSwitcher.exe`. The project can also be launched from VS Code with **F5**.
 
-- `.vscode/tasks.json`
-- `.vscode/launch.json`
-- `.vscode/extensions.json`
-- `.vscode/settings.json`
+## Release and research notes
 
-The `.sln` file is a standard .NET solution file and works with VS Code/.NET tooling; Visual Studio itself is not required.
+The [research notes](docs/codex-research.md) describe Codex auth, refresh, usage, and session behavior. The source and test project are in `src/` and `tests/`. Release builds target Windows x64 and are currently unsigned.

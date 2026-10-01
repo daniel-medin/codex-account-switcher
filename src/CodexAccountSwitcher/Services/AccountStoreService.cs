@@ -16,10 +16,15 @@ public sealed class AccountStoreService : IAccountStoreService
     private readonly string _credentialsDirectory;
 
     public AccountStoreService()
-    {
-        _rootDirectory = Path.Combine(
+        : this(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CodexAccountSwitcher");
+            "CodexAccountSwitcher"))
+    {
+    }
+
+    public AccountStoreService(string rootDirectory)
+    {
+        _rootDirectory = rootDirectory;
 
         _accountsFile = Path.Combine(_rootDirectory, "accounts.json");
         _credentialsDirectory = Path.Combine(_rootDirectory, "credentials");

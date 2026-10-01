@@ -193,3 +193,11 @@ The core scenario must work:
 11. The next request uses Account 3.
 
 No deletion of `.codex`, no lost session, no repeated manual login, and no manual file copying.
+
+## Release packaging
+
+- Document installation and the manual VS Code reload in `README.md` and in release notes. Never claim that switching a running VS Code session is verified until an end-to-end test proves it.
+- Build on Windows with the .NET 10 SDK. Run `dotnet test CodexAccountSwitcher.sln --configuration Release` before packaging.
+- Publish a self-contained, single-file `win-x64` Release build to `artifacts/publish/win-x64`. Keep `artifacts/` out of Git.
+- Package the published EXE in a versioned ZIP and record its SHA-256 hash. Publish the ZIP as a GitHub Release asset from the same commit that is merged to `main`.
+- Keep real `CODEX_HOME` and the user's live credentials untouched during build and automated tests. Tests use a temporary Codex home.

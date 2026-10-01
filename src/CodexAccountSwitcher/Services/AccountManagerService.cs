@@ -266,20 +266,8 @@ public sealed class AccountManagerService : IAccountManagerService
 
         _authParser.ApplyIdentity(target, targetInfo);
 
-        var rollbackPath = authPath + ".account-switcher-rollback";
-
         try
         {
-            if (File.Exists(rollbackPath))
-            {
-                File.Delete(rollbackPath);
-            }
-
-            if (File.Exists(authPath))
-            {
-                File.Copy(authPath, rollbackPath, overwrite: true);
-            }
-
             await AtomicWriteAsync(authPath, targetState, cancellationToken);
 
             var writtenState = await File.ReadAllBytesAsync(authPath, cancellationToken);
@@ -294,21 +282,16 @@ public sealed class AccountManagerService : IAccountManagerService
             target.LastUsedAt = DateTimeOffset.UtcNow;
             await _accountStore.SaveAccountsAsync(accounts, cancellationToken);
 
-            if (File.Exists(rollbackPath))
-            {
-                File.Delete(rollbackPath);
-            }
         }
         catch
         {
-            if (File.Exists(rollbackPath))
+            if (currentState is not null)
             {
-                File.Copy(rollbackPath, authPath, overwrite: true);
-                File.Delete(rollbackPath);
+                await AtomicWriteAsync(authPath, currentState, CancellationToken.None);
             }
-            else if (currentState is not null)
+            else if (File.Exists(authPath))
             {
-                await AtomicWriteAsync(authPath, currentState, cancellationToken);
+                File.Delete(authPath);
             }
 
             throw;
@@ -470,25 +453,25 @@ public sealed class AccountManagerService : IAccountManagerService
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
 
         var tempPath = destination + ".account-switcher-tmp";
-        await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken);
-
-        if (File.Exists(destination))
+        try
         {
-            var backupPath = destination + ".account-switcher-write-backup";
-            File.Replace(
-                tempPath,
-                destination,
-                backupPath,
-                ignoreMetadataErrors: true);
+            await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken);
 
-            if (File.Exists(backupPath))
+            if (File.Exists(destination))
             {
-                File.Delete(backupPath);
+                File.Replace(tempPath, destination, null, ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(tempPath, destination);
             }
         }
-        else
+        finally
         {
-            File.Move(tempPath, destination);
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
         }
     }
 }

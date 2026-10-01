@@ -97,11 +97,11 @@ When switching to a stored account:
 6. Write it to live `auth.json` using an atomic replace.
 7. Re-read and verify the written identity.
 8. Roll back if replacement or verification fails.
-9. Stop only Codex worker processes that have a VS Code `Code.exe` ancestor.
+9. Leave the running VS Code Codex worker in place. The user reloads the VS Code window after the current turn finishes.
 
-The process filter is deliberate: standalone Codex CLI jobs are not killed.
+The previous worker-kill approach was removed because an unexpected app-server exit can leave the extension in a fatal state. The app currently verifies only the authentication file on disk; it does not verify the identity of a running VS Code Codex worker.
 
-VS Code is expected to recreate/reconnect its Codex worker when needed while the local session files remain in the shared `CODEX_HOME`.
+The installed VS Code Codex extension `26.928.31416` bundles `codex-cli 0.159.2`. Its app-server process is created when the extension activates. The installed extension's process-exit handler treats a nonzero exit as fatal and does not restart the process there. OpenAI Codex source keeps authentication in memory; replacing `auth.json` is not a live account switch for an existing app-server. A VS Code window reload starts a new extension/app-server instance, but cross-account resumption of the same visible conversation still requires an end-to-end test.
 
 ## Usage dashboard
 
@@ -131,7 +131,7 @@ Tokens are never intentionally written to diagnostic output or logs.
 
 1. Keyring-backed Codex auth is not yet managed by the switcher.
 2. The usage and OAuth endpoints are Codex internals rather than a versioned public third-party API, so those implementations are isolated and may need maintenance when Codex changes.
-3. Automatic reload currently stops VS Code-owned Codex worker processes. It does not force-restart the whole VS Code window.
+3. v1 requires the user to run **Developer: Reload Window** in VS Code after changing the auth file. Automatic reload is not implemented.
 4. Actual end-to-end behavior still needs to be exercised on a real Windows workstation with multiple Plus accounts.
 
 ## Next useful work
