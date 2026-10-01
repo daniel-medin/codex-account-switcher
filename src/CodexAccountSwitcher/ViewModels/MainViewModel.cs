@@ -12,7 +12,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ICodexEnvironmentService _environmentService;
     private readonly IAccountManagerService _accountManager;
     private readonly ICodexUsageService _usageService;
-    private readonly IVsCodeService _vsCodeService;
 
     private CodexDiagnostics _diagnostics = new();
     private string _statusText = "Ready.";
@@ -22,13 +21,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public MainViewModel(
         ICodexEnvironmentService environmentService,
         IAccountManagerService accountManager,
-        ICodexUsageService usageService,
-        IVsCodeService vsCodeService)
+        ICodexUsageService usageService)
     {
         _environmentService = environmentService;
         _accountManager = accountManager;
         _usageService = usageService;
-        _vsCodeService = vsCodeService;
 
         RefreshCommand = new RelayCommand(RefreshAsync, () => !IsBusy);
         ImportCurrentCommand = new RelayCommand(ImportCurrentAsync, () => !IsBusy);
@@ -153,15 +150,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             async () =>
             {
                 await _accountManager.ActivateAccountAsync(account.Id);
-
-                var stoppedWorkers =
-                    await _vsCodeService.ReloadCodexProcessesAsync();
-
                 await ReloadAccountsAsync(refreshUsage: true);
-
-                StatusText = stoppedWorkers > 0
-                    ? $"Switched to {account.DisplayName}. Restarted {stoppedWorkers} VS Code Codex worker(s); the session should reconnect automatically."
-                    : $"Switched to {account.DisplayName}. No VS Code Codex worker was running; the next Codex action will use the new account.";
+                StatusText =
+                    $"Switched stored credentials to {account.DisplayName}. The current Codex session was left running to preserve its context; its worker may keep using the previous account until Codex is restarted.";
             });
     }
 

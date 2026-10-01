@@ -32,13 +32,10 @@ public partial class MainWindow : System.Windows.Window
             authParser,
             HttpClient);
 
-        var vsCodeService = new VsCodeService();
-
         DataContext = new MainViewModel(
             environmentService,
             accountManager,
-            usageService,
-            vsCodeService);
+            usageService);
     }
 
     private async void EditAlias_Click(object sender, System.Windows.RoutedEventArgs e)

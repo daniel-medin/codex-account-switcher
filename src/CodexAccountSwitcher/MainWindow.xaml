@@ -91,6 +91,12 @@
                                FontWeight="SemiBold"
                                Margin="0,0,0,12" />
 
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="AUTH FILE marks the account saved for the next Codex process. A running VS Code session may still use another account."
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource SecondaryTextBrush}"
+                               Margin="0,-6,0,12" />
+
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Accounts}">
                             <ItemsControl.ItemTemplate>
@@ -113,9 +119,10 @@
                                                                FontSize="16"
                                                                FontWeight="SemiBold" />
 
-                                                    <TextBlock Text="  ACTIVE"
+                                                    <TextBlock Text="  AUTH FILE"
                                                                FontWeight="SemiBold"
-                                                               Foreground="{StaticResource AccentBrush}">
+                                                               Foreground="{StaticResource AccentBrush}"
+                                                               ToolTip="This account is saved in the Codex auth file. A running VS Code worker may still have another account cached.">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Collapsed" />
