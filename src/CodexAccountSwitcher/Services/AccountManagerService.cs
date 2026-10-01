@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using CodexAccountSwitcher.Models;
 
 namespace CodexAccountSwitcher.Services;
@@ -7,17 +6,30 @@ public sealed class AccountManagerService : IAccountManagerService
 {
     private readonly IAccountStoreService _accountStore;
     private readonly ICodexCliService _codexCli;
+    private readonly ICodexAuthParser _authParser;
 
-    public AccountManagerService(IAccountStoreService accountStore, ICodexCliService codexCli)
+    public AccountManagerService(
+        IAccountStoreService accountStore,
+        ICodexCliService codexCli,
+        ICodexAuthParser authParser)
     {
         _accountStore = accountStore;
         _codexCli = codexCli;
+        _authParser = authParser;
     }
 
-    public async Task<IReadOnlyList<CodexAccount>> GetAccountsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CodexAccount>> GetAccountsAsync(
+        CancellationToken cancellationToken = default)
     {
         var accounts = (await _accountStore.LoadAccountsAsync(cancellationToken)).ToList();
-        await ApplyActiveStateAsync(accounts, cancellationToken);
+        var metadataChanged = await MigrateMetadataAsync(accounts, cancellationToken);
+        metadataChanged |= await ApplyActiveStateAsync(accounts, cancellationToken);
+
+        if (metadataChanged)
+        {
+            await _accountStore.SaveAccountsAsync(accounts, cancellationToken);
+        }
+
         return accounts;
     }
 
@@ -31,41 +43,45 @@ public sealed class AccountManagerService : IAccountManagerService
         if (!File.Exists(authPath))
         {
             throw new InvalidOperationException(
-                "No file-based Codex auth state was found. Sign in to Codex first.");
+                "No file-based Codex login was found. Sign in to Codex first.");
         }
 
-        var authBytes = await File.ReadAllBytesAsync(authPath, cancellationToken);
+        var authState = await File.ReadAllBytesAsync(authPath, cancellationToken);
+        var authInfo = _authParser.Parse(authState);
         var accounts = (await _accountStore.LoadAccountsAsync(cancellationToken)).ToList();
 
-        var currentHash = ComputeHash(authBytes);
-        var existing = await FindMatchingAccountAsync(accounts, currentHash, cancellationToken);
+        var existing = await FindMatchingAccountAsync(accounts, authInfo, cancellationToken);
 
-        if (existing is not null)
+        if (existing is null)
+        {
+            existing = new CodexAccount
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = displayName.Trim(),
+                CreatedAt = DateTimeOffset.UtcNow,
+                LastUsedAt = DateTimeOffset.UtcNow
+            };
+
+            existing.CredentialFileName = $"{existing.Id:N}.bin";
+            accounts.Add(existing);
+        }
+        else
         {
             existing.DisplayName = displayName.Trim();
             existing.LastUsedAt = DateTimeOffset.UtcNow;
-            await _accountStore.SaveCredentialsAsync(existing.Id, authBytes, cancellationToken);
-            await _accountStore.SaveAccountsAsync(accounts, cancellationToken);
-            await ApplyActiveStateAsync(accounts, cancellationToken);
-            return existing;
         }
 
-        var account = new CodexAccount
-        {
-            Id = Guid.NewGuid(),
-            DisplayName = displayName.Trim(),
-            CreatedAt = DateTimeOffset.UtcNow,
-            LastUsedAt = DateTimeOffset.UtcNow
-        };
+        _authParser.ApplyIdentity(existing, authInfo);
 
-        account.CredentialFileName = $"{account.Id:N}.bin";
+        await _accountStore.SaveCredentialsAsync(
+            existing.Id,
+            authState,
+            cancellationToken);
 
-        await _accountStore.SaveCredentialsAsync(account.Id, authBytes, cancellationToken);
-        accounts.Add(account);
         await _accountStore.SaveAccountsAsync(accounts, cancellationToken);
         await ApplyActiveStateAsync(accounts, cancellationToken);
 
-        return account;
+        return existing;
     }
 
     public async Task<CodexAccount> AddAccountViaLoginAsync(
@@ -74,112 +90,115 @@ public sealed class AccountManagerService : IAccountManagerService
     {
         ValidateDisplayName(displayName);
 
-        var authPath = GetAuthPath();
         var accounts = (await _accountStore.LoadAccountsAsync(cancellationToken)).ToList();
-        byte[]? previousAuth = null;
+        var activePath = GetAuthPath();
 
-        if (File.Exists(authPath))
+        if (File.Exists(activePath))
         {
-            previousAuth = await File.ReadAllBytesAsync(authPath, cancellationToken);
-            var previousHash = ComputeHash(previousAuth);
-            var previousAccount = await FindMatchingAccountAsync(
+            var activeState = await File.ReadAllBytesAsync(activePath, cancellationToken);
+            var activeInfo = _authParser.Parse(activeState);
+            var activeAccount = await FindMatchingAccountAsync(
                 accounts,
-                previousHash,
+                activeInfo,
                 cancellationToken);
 
-            if (previousAccount is null)
+            if (activeAccount is null)
             {
                 throw new InvalidOperationException(
-                    "The currently active Codex login has not been imported yet. Import the current account before adding another.");
+                    "Import the currently active Codex account before adding another account.");
             }
 
-            previousAccount.LastUsedAt = DateTimeOffset.UtcNow;
-            await _accountStore.SaveCredentialsAsync(previousAccount.Id, previousAuth, cancellationToken);
+            _authParser.ApplyIdentity(activeAccount, activeInfo);
+            activeAccount.LastUsedAt = DateTimeOffset.UtcNow;
+
+            await _accountStore.SaveCredentialsAsync(
+                activeAccount.Id,
+                activeState,
+                cancellationToken);
+
             await _accountStore.SaveAccountsAsync(accounts, cancellationToken);
         }
 
         var executable = await _codexCli.FindCodexExecutableAsync(cancellationToken)
                          ?? throw new InvalidOperationException(
-                             "Codex CLI could not be found in PATH.");
+                             "Codex CLI could not be found. Make sure 'codex' is available in PATH.");
 
-        var stagingPath = authPath + ".account-switcher-staging";
+        var loginHome = Path.Combine(
+            Path.GetTempPath(),
+            "CodexAccountSwitcher",
+            $"login-{Guid.NewGuid():N}");
 
         try
         {
-            if (File.Exists(stagingPath))
-            {
-                File.Delete(stagingPath);
-            }
+            Directory.CreateDirectory(loginHome);
 
-            if (File.Exists(authPath))
-            {
-                File.Move(authPath, stagingPath);
-            }
+            var exitCode = await _codexCli.RunInteractiveLoginAsync(
+                executable,
+                loginHome,
+                cancellationToken);
 
-            var exitCode = await _codexCli.RunInteractiveLoginAsync(executable, cancellationToken);
+            var loginAuthPath = Path.Combine(loginHome, "auth.json");
 
-            if (exitCode != 0 || !File.Exists(authPath))
+            if (exitCode != 0 || !File.Exists(loginAuthPath))
             {
                 throw new InvalidOperationException(
                     $"Codex login did not complete successfully (exit code {exitCode}).");
             }
 
-            var newAuth = await File.ReadAllBytesAsync(authPath, cancellationToken);
-            var newHash = ComputeHash(newAuth);
-            var existing = await FindMatchingAccountAsync(accounts, newHash, cancellationToken);
+            var newAuthState = await File.ReadAllBytesAsync(
+                loginAuthPath,
+                cancellationToken);
 
-            CodexAccount result;
+            var newAuthInfo = _authParser.Parse(newAuthState);
+            var existing = await FindMatchingAccountAsync(
+                accounts,
+                newAuthInfo,
+                cancellationToken);
 
-            if (existing is not null)
+            CodexAccount account;
+
+            if (existing is null)
             {
-                existing.DisplayName = displayName.Trim();
-                existing.LastUsedAt = DateTimeOffset.UtcNow;
-                await _accountStore.SaveCredentialsAsync(existing.Id, newAuth, cancellationToken);
-                result = existing;
-            }
-            else
-            {
-                result = new CodexAccount
+                account = new CodexAccount
                 {
                     Id = Guid.NewGuid(),
                     DisplayName = displayName.Trim(),
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    LastUsedAt = DateTimeOffset.UtcNow
+                    CreatedAt = DateTimeOffset.UtcNow
                 };
 
-                result.CredentialFileName = $"{result.Id:N}.bin";
-
-                await _accountStore.SaveCredentialsAsync(result.Id, newAuth, cancellationToken);
-                accounts.Add(result);
+                account.CredentialFileName = $"{account.Id:N}.bin";
+                accounts.Add(account);
             }
+            else
+            {
+                account = existing;
+                account.DisplayName = displayName.Trim();
+            }
+
+            _authParser.ApplyIdentity(account, newAuthInfo);
+
+            await _accountStore.SaveCredentialsAsync(
+                account.Id,
+                newAuthState,
+                cancellationToken);
 
             await _accountStore.SaveAccountsAsync(accounts, cancellationToken);
 
-            if (File.Exists(stagingPath))
-            {
-                File.Delete(stagingPath);
-            }
-
-            await ApplyActiveStateAsync(accounts, cancellationToken);
-            return result;
+            return account;
         }
-        catch
+        finally
         {
-            if (File.Exists(authPath))
+            try
             {
-                File.Delete(authPath);
+                if (Directory.Exists(loginHome))
+                {
+                    Directory.Delete(loginHome, recursive: true);
+                }
             }
-
-            if (File.Exists(stagingPath))
+            catch
             {
-                File.Move(stagingPath, authPath);
+                // The temporary login home contains only disposable registration state.
             }
-            else if (previousAuth is not null)
-            {
-                await AtomicWriteAsync(authPath, previousAuth, cancellationToken);
-            }
-
-            throw;
         }
     }
 
@@ -192,25 +211,46 @@ public sealed class AccountManagerService : IAccountManagerService
                      ?? throw new InvalidOperationException("Account was not found.");
 
         var authPath = GetAuthPath();
-        byte[]? currentAuth = null;
+        byte[]? currentState = null;
 
         if (File.Exists(authPath))
         {
-            currentAuth = await File.ReadAllBytesAsync(authPath, cancellationToken);
-            var currentHash = ComputeHash(currentAuth);
-            var currentAccount = await FindMatchingAccountAsync(accounts, currentHash, cancellationToken);
+            currentState = await File.ReadAllBytesAsync(authPath, cancellationToken);
+            var currentInfo = _authParser.Parse(currentState);
+            var currentAccount = await FindMatchingAccountAsync(
+                accounts,
+                currentInfo,
+                cancellationToken);
 
             if (currentAccount is null)
             {
                 throw new InvalidOperationException(
-                    "The active Codex login is unknown. Import it before switching accounts.");
+                    "The active Codex login is not registered. Import it before switching.");
             }
 
+            _authParser.ApplyIdentity(currentAccount, currentInfo);
             currentAccount.LastUsedAt = DateTimeOffset.UtcNow;
-            await _accountStore.SaveCredentialsAsync(currentAccount.Id, currentAuth, cancellationToken);
+
+            await _accountStore.SaveCredentialsAsync(
+                currentAccount.Id,
+                currentState,
+                cancellationToken);
         }
 
-        var targetAuth = await _accountStore.LoadCredentialsAsync(target.Id, cancellationToken);
+        var targetState = await _accountStore.LoadCredentialsAsync(
+            target.Id,
+            cancellationToken);
+
+        var targetInfo = _authParser.Parse(targetState);
+
+        if (!_authParser.Matches(target, targetInfo))
+        {
+            throw new InvalidOperationException(
+                "Stored credentials no longer match the selected account.");
+        }
+
+        _authParser.ApplyIdentity(target, targetInfo);
+
         var rollbackPath = authPath + ".account-switcher-rollback";
 
         try
@@ -225,13 +265,15 @@ public sealed class AccountManagerService : IAccountManagerService
                 File.Copy(authPath, rollbackPath, overwrite: true);
             }
 
-            await AtomicWriteAsync(authPath, targetAuth, cancellationToken);
+            await AtomicWriteAsync(authPath, targetState, cancellationToken);
 
-            var written = await File.ReadAllBytesAsync(authPath, cancellationToken);
-            if (!CryptographicOperations.FixedTimeEquals(ComputeHash(written), ComputeHash(targetAuth)))
+            var writtenState = await File.ReadAllBytesAsync(authPath, cancellationToken);
+            var writtenInfo = _authParser.Parse(writtenState);
+
+            if (!_authParser.Matches(target, writtenInfo))
             {
                 throw new InvalidOperationException(
-                    "The activated Codex auth state failed verification.");
+                    "The activated Codex login failed identity verification.");
             }
 
             target.LastUsedAt = DateTimeOffset.UtcNow;
@@ -249,16 +291,16 @@ public sealed class AccountManagerService : IAccountManagerService
                 File.Copy(rollbackPath, authPath, overwrite: true);
                 File.Delete(rollbackPath);
             }
-            else if (currentAuth is not null)
+            else if (currentState is not null)
             {
-                await AtomicWriteAsync(authPath, currentAuth, cancellationToken);
+                await AtomicWriteAsync(authPath, currentState, cancellationToken);
             }
 
             throw;
         }
     }
 
-    private async Task ApplyActiveStateAsync(
+    private async Task<bool> ApplyActiveStateAsync(
         List<CodexAccount> accounts,
         CancellationToken cancellationToken)
     {
@@ -270,40 +312,113 @@ public sealed class AccountManagerService : IAccountManagerService
         var authPath = GetAuthPath();
         if (!File.Exists(authPath))
         {
-            return;
+            return false;
         }
 
-        var currentHash = ComputeHash(await File.ReadAllBytesAsync(authPath, cancellationToken));
-        var active = await FindMatchingAccountAsync(accounts, currentHash, cancellationToken);
+        byte[] currentState;
+        CodexAuthInfo currentInfo;
 
-        if (active is not null)
+        try
         {
-            active.IsActive = true;
+            currentState = await File.ReadAllBytesAsync(authPath, cancellationToken);
+            currentInfo = _authParser.Parse(currentState);
         }
+        catch
+        {
+            return false;
+        }
+
+        var active = await FindMatchingAccountAsync(
+            accounts,
+            currentInfo,
+            cancellationToken);
+
+        if (active is null)
+        {
+            return false;
+        }
+
+        active.IsActive = true;
+        _authParser.ApplyIdentity(active, currentInfo);
+
+        // Capture token rotations Codex performed while this account was active.
+        await _accountStore.SaveCredentialsAsync(
+            active.Id,
+            currentState,
+            cancellationToken);
+
+        return true;
+    }
+
+    private async Task<bool> MigrateMetadataAsync(
+        List<CodexAccount> accounts,
+        CancellationToken cancellationToken)
+    {
+        var changed = false;
+
+        foreach (var account in accounts)
+        {
+            if (!string.IsNullOrWhiteSpace(account.ChatGptUserId) ||
+                !string.IsNullOrWhiteSpace(account.Email))
+            {
+                continue;
+            }
+
+            try
+            {
+                var state = await _accountStore.LoadCredentialsAsync(
+                    account.Id,
+                    cancellationToken);
+
+                var info = _authParser.Parse(state);
+                _authParser.ApplyIdentity(account, info);
+                changed = true;
+            }
+            catch
+            {
+                // Old/incomplete metadata should not block the other accounts.
+            }
+        }
+
+        return changed;
     }
 
     private async Task<CodexAccount?> FindMatchingAccountAsync(
         IEnumerable<CodexAccount> accounts,
-        byte[] authHash,
+        CodexAuthInfo authInfo,
         CancellationToken cancellationToken)
     {
         foreach (var account in accounts)
         {
+            if (_authParser.Matches(account, authInfo))
+            {
+                return account;
+            }
+        }
+
+        // Migration fallback for accounts created by the early hash-based MVP.
+        foreach (var account in accounts)
+        {
             try
             {
-                var stored = await _accountStore.LoadCredentialsAsync(account.Id, cancellationToken);
-                var storedHash = ComputeHash(stored);
+                var storedState = await _accountStore.LoadCredentialsAsync(
+                    account.Id,
+                    cancellationToken);
 
-                if (CryptographicOperations.FixedTimeEquals(authHash, storedHash))
+                var storedInfo = _authParser.Parse(storedState);
+
+                if (string.Equals(
+                        storedInfo.StableIdentity,
+                        authInfo.StableIdentity,
+                        StringComparison.Ordinal))
                 {
+                    _authParser.ApplyIdentity(account, storedInfo);
                     return account;
                 }
             }
-            catch (FileNotFoundException)
+            catch
             {
-            }
-            catch (CryptographicException)
-            {
+                // Ignore unreadable legacy entries here.
             }
         }
 
@@ -322,13 +437,13 @@ public sealed class AccountManagerService : IAccountManagerService
         return Path.Combine(codexHome, "auth.json");
     }
 
-    private static byte[] ComputeHash(byte[] bytes) => SHA256.HashData(bytes);
-
     private static void ValidateDisplayName(string displayName)
     {
         if (string.IsNullOrWhiteSpace(displayName))
         {
-            throw new ArgumentException("Enter an account name first.", nameof(displayName));
+            throw new ArgumentException(
+                "Enter an account name first.",
+                nameof(displayName));
         }
     }
 
@@ -345,7 +460,11 @@ public sealed class AccountManagerService : IAccountManagerService
         if (File.Exists(destination))
         {
             var backupPath = destination + ".account-switcher-write-backup";
-            File.Replace(tempPath, destination, backupPath, ignoreMetadataErrors: true);
+            File.Replace(
+                tempPath,
+                destination,
+                backupPath,
+                ignoreMetadataErrors: true);
 
             if (File.Exists(backupPath))
             {

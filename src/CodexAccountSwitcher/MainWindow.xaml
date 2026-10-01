@@ -2,10 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Codex Account Switcher"
-        Width="900"
-        Height="720"
-        MinWidth="760"
-        MinHeight="600"
+        Width="980"
+        Height="760"
+        MinWidth="820"
+        MinHeight="640"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -28,13 +28,13 @@
                 <TextBlock Text="CODEX ACCOUNT SWITCHER"
                            FontSize="24"
                            FontWeight="SemiBold" />
-                <TextBlock Text="Multi-account MVP — file-based Codex authentication"
+                <TextBlock Text="Switch accounts without replacing sessions, skills or config"
                            Margin="0,4,0,0"
                            Foreground="{StaticResource SecondaryTextBrush}" />
             </StackPanel>
 
             <Button Grid.Column="1"
-                    Content="Refresh"
+                    Content="Refresh usage"
                     Command="{Binding RefreshCommand}"
                     VerticalAlignment="Center" />
         </Grid>
@@ -73,7 +73,7 @@
 
         <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="5*" />
                 <ColumnDefinition Width="18" />
                 <ColumnDefinition Width="2*" />
             </Grid.ColumnDefinitions>
@@ -96,30 +96,93 @@
                                 <DataTemplate>
                                     <Border BorderBrush="{StaticResource PanelBorderBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="8"
-                                            Margin="0,0,0,10"
-                                            Padding="12">
+                                            CornerRadius="9"
+                                            Margin="0,0,0,12"
+                                            Padding="14">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="18" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
                                             <StackPanel>
-                                                <TextBlock Text="{Binding DisplayName}"
-                                                           FontSize="15"
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               FontSize="16"
+                                                               FontWeight="SemiBold" />
+
+                                                    <TextBlock Text="  ACTIVE"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{StaticResource AccentBrush}"
+                                                               Visibility="Collapsed">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+
+                                                    <TextBlock Text="  ★ BEST AVAILABLE"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{StaticResource SecondaryTextBrush}"
+                                                               Visibility="Collapsed">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsRecommended}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </StackPanel>
+
+                                                <TextBlock Text="{Binding IdentityText}"
+                                                           Margin="0,3,0,12"
+                                                           Foreground="{StaticResource SecondaryTextBrush}" />
+
+                                                <TextBlock Text="{Binding PrimaryUsageText}"
                                                            FontWeight="SemiBold" />
-                                                <TextBlock Margin="0,4,0,0"
-                                                           Foreground="{StaticResource SecondaryTextBrush}">
-                                                    <Run Text="Active: " />
-                                                    <Run Text="{Binding IsActive}" />
-                                                </TextBlock>
+                                                <ProgressBar Height="7"
+                                                             Margin="0,5,0,3"
+                                                             Minimum="0"
+                                                             Maximum="100"
+                                                             Value="{Binding PrimaryRemainingValue}" />
+                                                <TextBlock Text="{Binding PrimaryResetText}"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource SecondaryTextBrush}"
+                                                           Margin="0,0,0,10" />
+
+                                                <TextBlock Text="{Binding SecondaryUsageText}"
+                                                           FontWeight="SemiBold" />
+                                                <ProgressBar Height="7"
+                                                             Margin="0,5,0,3"
+                                                             Minimum="0"
+                                                             Maximum="100"
+                                                             Value="{Binding SecondaryRemainingValue}" />
+                                                <TextBlock Text="{Binding SecondaryResetText}"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource SecondaryTextBrush}" />
+
+                                                <TextBlock Text="{Binding UsageStatusText}"
+                                                           FontSize="11"
+                                                           Margin="0,10,0,0"
+                                                           Foreground="{StaticResource SecondaryTextBrush}" />
                                             </StackPanel>
 
-                                            <Button Grid.Column="1"
+                                            <Button Grid.Column="2"
                                                     Content="Use account"
                                                     Command="{Binding DataContext.ActivateAccountCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
+                                                    MinWidth="105"
                                                     VerticalAlignment="Center" />
                                         </Grid>
                                     </Border>
@@ -143,23 +206,38 @@
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,12" />
 
-                        <TextBlock Text="CODEX_HOME" Foreground="{StaticResource SecondaryTextBrush}" />
-                        <TextBlock Text="{Binding Diagnostics.CodexHome}" TextWrapping="Wrap" Margin="0,2,0,12" />
+                        <TextBlock Text="CODEX_HOME"
+                                   Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.CodexHome}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2,0,12" />
 
-                        <TextBlock Text="Codex executable" Foreground="{StaticResource SecondaryTextBrush}" />
-                        <TextBlock Text="{Binding Diagnostics.CodexExecutable}" TextWrapping="Wrap" Margin="0,2,0,12" />
+                        <TextBlock Text="Codex executable"
+                                   Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.CodexExecutable}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2,0,12" />
 
-                        <TextBlock Text="Codex version" Foreground="{StaticResource SecondaryTextBrush}" />
-                        <TextBlock Text="{Binding Diagnostics.CodexVersion}" Margin="0,2,0,12" />
+                        <TextBlock Text="Codex version"
+                                   Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.CodexVersion}"
+                                   Margin="0,2,0,12" />
 
-                        <TextBlock Text="Auth candidate" Foreground="{StaticResource SecondaryTextBrush}" />
-                        <TextBlock Text="{Binding Diagnostics.AuthCandidate}" TextWrapping="Wrap" Margin="0,2,0,12" />
+                        <TextBlock Text="Auth file"
+                                   Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.AuthCandidate}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2,0,12" />
 
-                        <TextBlock Text="VS Code processes" Foreground="{StaticResource SecondaryTextBrush}" />
-                        <TextBlock Text="{Binding Diagnostics.VsCodeProcessCount}" Margin="0,2,0,12" />
+                        <TextBlock Text="VS Code processes"
+                                   Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.VsCodeProcessCount}"
+                                   Margin="0,2,0,12" />
 
-                        <TextBlock Text="Codex-like processes" Foreground="{StaticResource SecondaryTextBrush}" />
-                        <TextBlock Text="{Binding Diagnostics.CodexProcessCount}" Margin="0,2,0,0" />
+                        <TextBlock Text="Codex-like processes"
+                                   Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.CodexProcessCount}"
+                                   Margin="0,2,0,0" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -172,10 +250,11 @@
                 CornerRadius="8"
                 Padding="12">
             <StackPanel>
-                <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding StatusText}"
+                           TextWrapping="Wrap" />
                 <TextBlock Margin="0,4,0,0"
                            Foreground="{StaticResource SecondaryTextBrush}"
-                           Text="Credentials are stored with Windows DPAPI for the current Windows user. Account switching only replaces auth.json; sessions, skills and config are not touched." />
+                           Text="Credentials are DPAPI-protected per Windows user. Adding an account uses a temporary CODEX_HOME, so the currently active Codex session is not logged out." />
             </StackPanel>
         </Border>
     </Grid>
