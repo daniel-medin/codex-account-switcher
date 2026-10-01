@@ -22,9 +22,7 @@ public partial class MainWindow : System.Windows.Window
             Title = "Codex Account Switcher — Isolated Test";
         }
 
-        var processService = new CodexProcessService();
         var workerRestartService = new CodexWorkerRestartService();
-        var environmentService = new CodexEnvironmentService(processService);
         var accountStore = new AccountStoreService();
         var authParser = new CodexAuthParser();
         var codexCli = new CodexCliService();
@@ -40,7 +38,6 @@ public partial class MainWindow : System.Windows.Window
             HttpClient);
 
         DataContext = new MainViewModel(
-            environmentService,
             accountManager,
             usageService,
             workerRestartService);

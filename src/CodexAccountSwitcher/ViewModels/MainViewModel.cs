@@ -9,23 +9,19 @@ namespace CodexAccountSwitcher.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private readonly ICodexEnvironmentService _environmentService;
     private readonly IAccountManagerService _accountManager;
     private readonly ICodexUsageService _usageService;
     private readonly ICodexWorkerRestartService _workerRestartService;
 
-    private CodexDiagnostics _diagnostics = new();
     private string _statusText = "Ready.";
     private string _accountName = string.Empty;
     private bool _isBusy;
 
     public MainViewModel(
-        ICodexEnvironmentService environmentService,
         IAccountManagerService accountManager,
         ICodexUsageService usageService,
         ICodexWorkerRestartService workerRestartService)
     {
-        _environmentService = environmentService;
         _accountManager = accountManager;
         _usageService = usageService;
         _workerRestartService = workerRestartService;
@@ -41,16 +37,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public ObservableCollection<CodexAccount> Accounts { get; } = new();
-
-    public CodexDiagnostics Diagnostics
-    {
-        get => _diagnostics;
-        private set
-        {
-            _diagnostics = value;
-            OnPropertyChanged();
-        }
-    }
 
     public string AccountName
     {
@@ -107,7 +93,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             "Refreshing accounts and usage...",
             async () =>
             {
-                Diagnostics = await _environmentService.GetDiagnosticsAsync();
                 await ReloadAccountsAsync(refreshUsage: true);
                 StatusText = $"Refreshed at {DateTime.Now:HH:mm:ss}.";
             });
@@ -203,9 +188,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task ReloadAccountsAsync(bool refreshUsage)
     {
-        var accounts = (await _accountManager.GetAccountsAsync())
-            .OrderBy(account => account.CreatedAt)
-            .ToList();
+        var accounts = (await _accountManager.GetAccountsAsync()).ToList();
 
         if (refreshUsage && accounts.Count > 0)
         {
@@ -220,33 +203,27 @@ public sealed class MainViewModel : INotifyPropertyChanged
             });
 
             await Task.WhenAll(usageTasks);
-            MarkRecommendedAccount(accounts);
         }
+
+        var rankedAccounts = CodexAccountRanking.BySpendUrgency(accounts, DateTimeOffset.UtcNow);
+        MarkRecommendedAccount(rankedAccounts);
 
         Accounts.Clear();
 
-        foreach (var account in accounts)
+        foreach (var account in rankedAccounts)
         {
             Accounts.Add(account);
         }
     }
 
-    private static void MarkRecommendedAccount(List<CodexAccount> accounts)
+    private static void MarkRecommendedAccount(IReadOnlyList<CodexAccount> accounts)
     {
         foreach (var account in accounts)
         {
             account.IsRecommended = false;
         }
 
-        var recommended = accounts
-            .Where(account =>
-                account.Usage?.Error is null &&
-                account.Usage?.PrimaryRemainingPercent is not null)
-            .OrderByDescending(account =>
-                account.Usage!.PrimaryRemainingPercent ?? -1)
-            .ThenByDescending(account =>
-                account.Usage!.SecondaryRemainingPercent ?? -1)
-            .FirstOrDefault();
+        var recommended = accounts.FirstOrDefault(CodexAccountRanking.HasUsableCapacity);
 
         if (recommended is not null)
         {

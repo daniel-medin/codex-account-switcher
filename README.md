@@ -7,7 +7,7 @@ This is an independent utility, not an OpenAI product.
 ## Install on Windows
 
 1. Install the [Codex VS Code extension](https://marketplace.visualstudio.com/items?itemName=openai.chatgpt) or another Codex CLI installation. The `codex` command must be available to the app for **Add another account**.
-2. Download `CodexAccountSwitcher-v1.2.0-win-x64.zip` from [GitHub Releases](https://github.com/daniel-medin/codex-account-switcher/releases). Extract it to a folder you keep, such as `%LOCALAPPDATA%\Programs\CodexAccountSwitcher`.
+2. Download `CodexAccountSwitcher-v1.2.3-win-x64.zip` from [GitHub Releases](https://github.com/daniel-medin/codex-account-switcher/releases). Extract it to a folder you keep, such as `%LOCALAPPDATA%\Programs\CodexAccountSwitcher`.
 3. Run `CodexAccountSwitcher.exe`. The release is self-contained; it does not require a separate .NET installation. Windows may ask you to confirm running an unsigned app.
 4. To launch it from the desktop, right-click the EXE and choose **Show more options → Send to → Desktop (create shortcut)**. Keep the EXE in its extracted folder and use the shortcut.
 
@@ -21,6 +21,10 @@ The app runs as your Windows user. Registered account credentials are protected 
 4. Continue in the same conversation after the app reports that Codex restarted. If recovery fails, the app names the affected window. In that window, use **Ctrl+Shift+P → Developer: Reload Window → Enter** and reopen the conversation.
 
 The automated restart was verified in an isolated VS Code profile with Codex extension 26.928.31416. A preexisting extension UI error prevented recovery in one test window and required a manual reload. A running background turn may not be visible to the app, so finish all turns before confirming the switch. See [the test notes](docs/vscode-switch-test.md) for details. The normal VS Code profile and server-side account attribution have not been tested end to end.
+
+The app shows how long remains until each account's weekly usage resets, alongside the remaining percentage. The countdown updates when you select **Refresh usage**. The account list uses the full window width.
+
+Accounts with usable 5-hour and weekly allowance appear first, ordered by the soonest weekly reset. Accounts with weekly allowance but no current 5-hour capacity follow, then accounts with unavailable usage. The countdown is larger and white, and the first usable account is marked **USE FIRST**.
 
 The app supports Codex's file-based ChatGPT auth. Keyring-backed auth and other credential sources are outside v1's supported scope. Usage retrieval depends on undocumented Codex/ChatGPT endpoints and may need updates when those change.
 

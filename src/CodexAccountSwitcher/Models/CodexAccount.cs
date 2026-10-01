@@ -93,6 +93,9 @@ public sealed class CodexAccount : INotifyPropertyChanged
             : string.Empty;
 
     [JsonIgnore]
+    public string WeeklySpendText => Usage?.GetWeeklySpendText(DateTimeOffset.UtcNow) ?? string.Empty;
+
+    [JsonIgnore]
     public string UsageStatusText =>
         !string.IsNullOrWhiteSpace(Usage?.Error)
             ? Usage.Error!
