@@ -2,17 +2,19 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Codex Account Switcher"
-        Width="820"
-        Height="620"
-        MinWidth="700"
-        MinHeight="520"
+        Width="900"
+        Height="720"
+        MinWidth="760"
+        MinHeight="600"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="16" />
+            <RowDefinition Height="18" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="18" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="16" />
+            <RowDefinition Height="18" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -26,13 +28,13 @@
                 <TextBlock Text="CODEX ACCOUNT SWITCHER"
                            FontSize="24"
                            FontWeight="SemiBold" />
-                <TextBlock Text="Phase 1 diagnostics — read-only"
+                <TextBlock Text="Multi-account MVP — file-based Codex authentication"
                            Margin="0,4,0,0"
                            Foreground="{StaticResource SecondaryTextBrush}" />
             </StackPanel>
 
             <Button Grid.Column="1"
-                    Content="Refresh diagnostics"
+                    Content="Refresh"
                     Command="{Binding RefreshCommand}"
                     VerticalAlignment="Center" />
         </Grid>
@@ -42,70 +44,139 @@
                 BorderBrush="{StaticResource PanelBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
-                Padding="18">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="190" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                <TextBox Grid.Column="0"
+                         Text="{Binding AccountName, UpdateSourceTrigger=PropertyChanged}"
+                         Height="36"
+                         VerticalContentAlignment="Center"
+                         Padding="10,0"
+                         ToolTip="Account alias, for example Daniel 1" />
 
-                    <TextBlock Grid.Row="0" Text="CODEX_HOME" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Diagnostics.CodexHome}" TextWrapping="Wrap" Margin="0,7" />
+                <Button Grid.Column="2"
+                        Content="Import current"
+                        Command="{Binding ImportCurrentCommand}" />
 
-                    <TextBlock Grid.Row="1" Text=".codex exists" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Diagnostics.CodexHomeExists}" Margin="0,7" />
-
-                    <TextBlock Grid.Row="2" Text="Codex executable" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Diagnostics.CodexExecutable}" TextWrapping="Wrap" Margin="0,7" />
-
-                    <TextBlock Grid.Row="3" Text="Codex version" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Diagnostics.CodexVersion}" Margin="0,7" />
-
-                    <TextBlock Grid.Row="4" Text="Auth candidate" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Diagnostics.AuthCandidate}" TextWrapping="Wrap" Margin="0,7" />
-
-                    <TextBlock Grid.Row="5" Text="Sessions directory" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Diagnostics.SessionsDirectory}" TextWrapping="Wrap" Margin="0,7" />
-
-                    <TextBlock Grid.Row="6" Text="Skills directory" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Diagnostics.SkillsDirectory}" TextWrapping="Wrap" Margin="0,7" />
-
-                    <TextBlock Grid.Row="7" Text="VS Code processes" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding Diagnostics.VsCodeProcessCount}" Margin="0,7" />
-
-                    <TextBlock Grid.Row="8" Text="Codex-like processes" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,7" />
-                    <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding Diagnostics.CodexProcessCount}" Margin="0,7" />
-                </Grid>
-            </ScrollViewer>
+                <Button Grid.Column="4"
+                        Content="Add another account"
+                        Command="{Binding AddAccountCommand}" />
+            </Grid>
         </Border>
 
         <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="2*" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock Text="{Binding StatusText}"
-                       VerticalAlignment="Center"
-                       Foreground="{StaticResource SecondaryTextBrush}" />
+            <Border Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="16">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Accounts"
+                               FontSize="17"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,12" />
 
-            <TextBlock Grid.Column="1"
-                       Text="No authentication data is modified in Phase 1."
-                       VerticalAlignment="Center"
-                       Foreground="{StaticResource SecondaryTextBrush}" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Accounts}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource PanelBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Margin="0,0,0,10"
+                                            Padding="12">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           FontSize="15"
+                                                           FontWeight="SemiBold" />
+                                                <TextBlock Margin="0,4,0,0"
+                                                           Foreground="{StaticResource SecondaryTextBrush}">
+                                                    <Run Text="Active: " />
+                                                    <Run Text="{Binding IsActive}" />
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <Button Grid.Column="1"
+                                                    Content="Use account"
+                                                    Command="{Binding DataContext.ActivateAccountCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="2"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="16">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Diagnostics"
+                                   FontSize="17"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,12" />
+
+                        <TextBlock Text="CODEX_HOME" Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.CodexHome}" TextWrapping="Wrap" Margin="0,2,0,12" />
+
+                        <TextBlock Text="Codex executable" Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.CodexExecutable}" TextWrapping="Wrap" Margin="0,2,0,12" />
+
+                        <TextBlock Text="Codex version" Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.CodexVersion}" Margin="0,2,0,12" />
+
+                        <TextBlock Text="Auth candidate" Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.AuthCandidate}" TextWrapping="Wrap" Margin="0,2,0,12" />
+
+                        <TextBlock Text="VS Code processes" Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.VsCodeProcessCount}" Margin="0,2,0,12" />
+
+                        <TextBlock Text="Codex-like processes" Foreground="{StaticResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Diagnostics.CodexProcessCount}" Margin="0,2,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
         </Grid>
+
+        <Border Grid.Row="6"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource PanelBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12">
+            <StackPanel>
+                <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" />
+                <TextBlock Margin="0,4,0,0"
+                           Foreground="{StaticResource SecondaryTextBrush}"
+                           Text="Credentials are stored with Windows DPAPI for the current Windows user. Account switching only replaces auth.json; sessions, skills and config are not touched." />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>
