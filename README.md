@@ -106,3 +106,23 @@ Initial research / bootstrap stage.
 ## Disclaimer
 
 This is an independent utility and is not an official OpenAI product. The implementation should prefer documented and supported mechanisms where available and isolate any dependency on undocumented Codex internals.
+
+
+## Current MVP
+
+The `feature/multi-account-mvp` implementation adds the first real multi-account workflow for **file-based Codex authentication**:
+
+1. Sign in to Codex normally.
+2. Enter an alias and choose **Import current**.
+3. Enter another alias and choose **Add another account**.
+4. The app saves the current auth state securely, temporarily removes the active `auth.json` without calling `codex logout`, starts `codex login`, and captures the new account after successful login.
+5. Repeat for more accounts.
+6. Choose **Use account** to replace only the active auth state.
+
+Stored credential blobs are encrypted with Windows DPAPI using `CurrentUser` scope.
+
+### Important MVP limitation
+
+This version deliberately supports only Codex installations where the active ChatGPT authentication is represented by `$CODEX_HOME/auth.json`. Current Codex also supports configurable credential storage/keyring backends, so the app refuses to pretend those cases are supported until they have been verified and implemented.
+
+After switching auth, reload the Codex VS Code window/session so the running Codex process reads the new credentials.
