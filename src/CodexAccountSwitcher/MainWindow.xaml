@@ -114,8 +114,7 @@
 
                                                     <TextBlock Text="  ACTIVE"
                                                                FontWeight="SemiBold"
-                                                               Foreground="{StaticResource AccentBrush}"
-                                                               Visibility="Collapsed">
+                                                               Foreground="{StaticResource AccentBrush}">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -130,8 +129,7 @@
 
                                                     <TextBlock Text="  ★ BEST AVAILABLE"
                                                                FontWeight="SemiBold"
-                                                               Foreground="{StaticResource SecondaryTextBrush}"
-                                                               Visibility="Collapsed">
+                                                               Foreground="{StaticResource SecondaryTextBrush}">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Collapsed" />
