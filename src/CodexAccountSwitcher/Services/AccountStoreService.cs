@@ -38,7 +38,7 @@ public sealed class AccountStoreService : IAccountStoreService
             JsonOptions,
             cancellationToken);
 
-        return accounts ?? Array.Empty<CodexAccount>();
+        return accounts ?? new List<CodexAccount>();
     }
 
     public async Task SaveAccountsAsync(
