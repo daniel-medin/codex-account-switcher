@@ -2,54 +2,48 @@
 
 ## Status
 
-Phase 1 has started.
+Phase 2 has started on the `feature/multi-account-mvp` branch.
 
-The initial application intentionally performs read-only diagnostics only. It does not replace, copy, delete, encrypt, or otherwise mutate Codex authentication state.
+The first multi-account implementation is intentionally limited to **file-based authentication via `$CODEX_HOME/auth.json`**.
 
-## What the first build currently detects
+## Verified from current Codex source
 
-The application attempts to determine:
+Current Codex authentication is abstracted behind a credential storage layer and can use an auth file and/or keyring-backed storage depending on configuration.
 
-- effective `CODEX_HOME`
-  - explicit `CODEX_HOME` environment variable when set
-  - otherwise `%USERPROFILE%\.codex`
-- whether the Codex home exists
-- whether `auth.json` exists as an **auth candidate**
-- whether `sessions` exists
-- whether `skills` exists
-- Codex executable location
-- output from `codex --version`
-- number of VS Code processes
-- number of Codex-like processes
+The current logout implementation can revoke stored authentication tokens before deleting credential state. Because the account switcher needs to preserve credentials for later reuse, the application must **not call `codex logout` as part of ordinary account registration/switching**.
 
-## Important
+For the file-based MVP, adding another account therefore uses this flow:
 
-Finding `auth.json` does **not** yet mean we have proven it is the complete or only authentication state.
+1. Persist the current known `auth.json` into DPAPI-protected application storage.
+2. Move `auth.json` to a temporary staging path.
+3. Run normal `codex login`.
+4. On successful login, capture the new `auth.json`.
+5. On failure, restore the staged previous auth state.
 
-Before implementing account switching on real data we still need to verify on the target Windows machine:
+## Current implementation
 
-1. Which Codex build/version is installed.
-2. Whether the VS Code extension uses the same Codex home as the CLI.
-3. All auth-related storage locations.
-4. Whether Windows Credential Manager is involved.
-5. Whether auth data changes after token refresh.
-6. Whether sessions contain account-specific identifiers.
-7. Which process needs to be restarted after authentication changes.
-8. How usage/rate-limit information is retrieved in the currently installed build.
-9. Whether a supported API exists for retrieving usage for a non-active stored account.
+The app now supports:
 
-## Safety rule
+- importing the current active file-based Codex account
+- DPAPI-protected per-account credential blobs
+- account metadata under `%LOCALAPPDATA%\CodexAccountSwitcher`
+- interactive `codex login` to register another account
+- detecting whether the current `auth.json` matches a registered account
+- switching `auth.json` to a registered account
+- atomic writes and rollback on failed activation
+- preserving `sessions`, `skills`, `config.toml`, and all unrelated Codex state
 
-Do not implement real account swapping until diagnostics from an actual target machine have been reviewed.
+## Still to verify/implement
 
-A fake/temp Codex home should be used for switching tests first.
+1. Detect and support keyring credential storage.
+2. Detect the configured `cli_auth_credentials_store_mode`.
+3. Verify behavior with the VS Code extension on the target Windows machine.
+4. Automatically reload/restart only the Codex process after switching.
+5. Verify that a resumed session can continue across ChatGPT account IDs.
+6. Retrieve usage/rate limits for each stored account.
+7. Add automated fake-CODEX_HOME tests for switching and rollback.
+8. Add safe account removal.
 
-## Next implementation step
+## Safety constraint
 
-After running Phase 1 on the target Windows machine:
-
-- capture non-secret diagnostics
-- expand diagnostics where needed
-- document verified auth/session behavior
-- implement secure account metadata/credential storage
-- implement a fake-environment switcher with rollback tests
+Until keyring support is implemented, do not broaden auth manipulation beyond the verified `auth.json` path.
