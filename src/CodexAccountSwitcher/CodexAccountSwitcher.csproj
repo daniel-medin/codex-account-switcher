@@ -8,7 +8,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CodexAccountSwitcher</AssemblyName>
     <RootNamespace>CodexAccountSwitcher</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.2.0</Version>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="9.0.9" />
+  </ItemGroup>
 
 </Project>

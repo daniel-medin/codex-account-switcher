@@ -12,6 +12,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ICodexEnvironmentService _environmentService;
     private readonly IAccountManagerService _accountManager;
     private readonly ICodexUsageService _usageService;
+    private readonly ICodexWorkerRestartService _workerRestartService;
 
     private CodexDiagnostics _diagnostics = new();
     private string _statusText = "Ready.";
@@ -21,11 +22,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public MainViewModel(
         ICodexEnvironmentService environmentService,
         IAccountManagerService accountManager,
-        ICodexUsageService usageService)
+        ICodexUsageService usageService,
+        ICodexWorkerRestartService workerRestartService)
     {
         _environmentService = environmentService;
         _accountManager = accountManager;
         _usageService = usageService;
+        _workerRestartService = workerRestartService;
 
         RefreshCommand = new RelayCommand(RefreshAsync, () => !IsBusy);
         ImportCurrentCommand = new RelayCommand(ImportCurrentAsync, () => !IsBusy);
@@ -149,10 +152,52 @@ public sealed class MainViewModel : INotifyPropertyChanged
             $"Switching to {account.DisplayName}...",
             async () =>
             {
+                var targets = await Task.Run(_workerRestartService.FindTargets);
+                if (targets.Count > 0)
+                {
+                    await Task.Run(() =>
+                    {
+                        foreach (var target in targets)
+                        {
+                            _workerRestartService.ValidateReady(target);
+                        }
+                    });
+
+                    var confirmation = System.Windows.MessageBox.Show(
+                        $"Switch to {account.DisplayName} and restart Codex in {targets.Count} VS Code window(s)?\n\n" +
+                        "Continue only after every Codex turn has finished. " +
+                        "A background turn may not be visible to the app.",
+                        "Switch account and refresh Codex",
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Warning);
+                    if (confirmation != System.Windows.MessageBoxResult.Yes)
+                    {
+                        StatusText = "Account switch cancelled.";
+                        return;
+                    }
+                }
+
                 await _accountManager.ActivateAccountAsync(account.Id);
+                var failedWindows = new List<string>();
+                foreach (var target in targets)
+                {
+                    StatusText = $"Refreshing Codex in {target.WindowTitle}...";
+                    try
+                    {
+                        await Task.Run(() => _workerRestartService.RestartAsync(target));
+                    }
+                    catch (Exception ex)
+                    {
+                        failedWindows.Add($"{target.WindowTitle} ({ex.Message})");
+                    }
+                }
+
                 await ReloadAccountsAsync(refreshUsage: true);
-                StatusText =
-                    $"Switched stored credentials to {account.DisplayName}. The current Codex session was left running to preserve its context; its worker may keep using the previous account until Codex is restarted.";
+                StatusText = failedWindows.Count > 0
+                    ? $"Switched to {account.DisplayName}. Codex refreshed in {targets.Count - failedWindows.Count} of {targets.Count} windows. Reload manually: {string.Join(", ", failedWindows)}."
+                    : targets.Count > 0
+                        ? $"Switched to {account.DisplayName}. Codex restarted in all {targets.Count} detected VS Code window(s); you can continue in the same conversation."
+                        : $"Switched to {account.DisplayName}. No running Codex worker was found in the matching VS Code profile. A new Codex pane will use this account; reload any existing pane that does not reconnect.";
             });
     }
 

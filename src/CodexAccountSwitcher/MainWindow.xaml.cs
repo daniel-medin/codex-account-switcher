@@ -16,7 +16,14 @@ public partial class MainWindow : System.Windows.Window
     {
         InitializeComponent();
 
+        if (!string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable("CODEX_ACCOUNT_SWITCHER_DATA_HOME")))
+        {
+            Title = "Codex Account Switcher — Isolated Test";
+        }
+
         var processService = new CodexProcessService();
+        var workerRestartService = new CodexWorkerRestartService();
         var environmentService = new CodexEnvironmentService(processService);
         var accountStore = new AccountStoreService();
         var authParser = new CodexAuthParser();
@@ -35,7 +42,8 @@ public partial class MainWindow : System.Windows.Window
         DataContext = new MainViewModel(
             environmentService,
             accountManager,
-            usageService);
+            usageService,
+            workerRestartService);
     }
 
     private async void EditAlias_Click(object sender, System.Windows.RoutedEventArgs e)

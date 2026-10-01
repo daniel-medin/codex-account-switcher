@@ -39,6 +39,27 @@ public sealed class AccountSwitchTests : IDisposable
     }
 
     [Fact]
+    public async Task DefaultStoreCanBeRedirectedForIsolatedRuns()
+    {
+        var previous = Environment.GetEnvironmentVariable("CODEX_ACCOUNT_SWITCHER_DATA_HOME");
+        var isolatedStore = Path.Combine(_root, "isolated-default-store");
+
+        try
+        {
+            Environment.SetEnvironmentVariable("CODEX_ACCOUNT_SWITCHER_DATA_HOME", isolatedStore);
+            var account = Account("isolated");
+            await new AccountStoreService().SaveAccountsAsync([account]);
+
+            Assert.True(File.Exists(Path.Combine(isolatedStore, "accounts.json")));
+            Assert.Equal(account.Id, (await new AccountStoreService().LoadAccountsAsync()).Single().Id);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CODEX_ACCOUNT_SWITCHER_DATA_HOME", previous);
+        }
+    }
+
+    [Fact]
     public async Task SwitchPersistsRotatedStateAndPreservesSharedCodexFiles()
     {
         var original = Auth("a", "access-a", "refresh-a");

@@ -92,7 +92,7 @@
                                Margin="0,0,0,12" />
 
                     <TextBlock DockPanel.Dock="Top"
-                               Text="AUTH FILE marks the account saved for the next Codex process. A running VS Code session may still use another account."
+                               Text="AUTH FILE marks the saved account. Use account also refreshes Codex in detected VS Code windows after your turns finish."
                                TextWrapping="Wrap"
                                Foreground="{StaticResource SecondaryTextBrush}"
                                Margin="0,-6,0,12" />
@@ -249,6 +249,7 @@
                                    Foreground="{StaticResource SecondaryTextBrush}" />
                         <TextBlock Text="{Binding Diagnostics.CodexProcessCount}"
                                    Margin="0,2,0,0" />
+
                     </StackPanel>
                 </ScrollViewer>
             </Border>

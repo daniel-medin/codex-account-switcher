@@ -16,9 +16,7 @@ public sealed class AccountStoreService : IAccountStoreService
     private readonly string _credentialsDirectory;
 
     public AccountStoreService()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CodexAccountSwitcher"))
+        : this(ResolveDefaultRoot())
     {
     }
 
@@ -28,6 +26,16 @@ public sealed class AccountStoreService : IAccountStoreService
 
         _accountsFile = Path.Combine(_rootDirectory, "accounts.json");
         _credentialsDirectory = Path.Combine(_rootDirectory, "credentials");
+    }
+
+    private static string ResolveDefaultRoot()
+    {
+        var overrideRoot = Environment.GetEnvironmentVariable("CODEX_ACCOUNT_SWITCHER_DATA_HOME");
+        return string.IsNullOrWhiteSpace(overrideRoot)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CodexAccountSwitcher")
+            : Path.GetFullPath(Environment.ExpandEnvironmentVariables(overrideRoot));
     }
 
     public async Task<IReadOnlyList<CodexAccount>> LoadAccountsAsync(CancellationToken cancellationToken = default)
